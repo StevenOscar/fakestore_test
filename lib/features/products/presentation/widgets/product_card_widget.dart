@@ -1,11 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fakestore_test/core/styles/app_color.dart';
 import 'package:fakestore_test/core/styles/app_text_styles.dart';
-import 'package:fakestore_test/features/products/data/models/product_model.dart';
+import 'package:fakestore_test/features/products/domain/entities/product.dart';
 import 'package:flutter/material.dart';
 
 class ProductCardWidget extends StatefulWidget {
-  final ProductModel product;
+  final Product product;
   final bool isShort;
 
   const ProductCardWidget({super.key, required this.product, required this.isShort});
@@ -35,7 +35,7 @@ class _ProductCardWidgetState extends State<ProductCardWidget> {
                 child: CachedNetworkImage(
                   height: widget.isShort ? 200 : 250,
                   width: double.infinity,
-                  imageUrl: product.image ?? "",
+                  imageUrl: product.image,
                   errorWidget: (context, url, error) =>
                       Center(child: Icon(Icons.image_not_supported, size: 50)),
                   placeholder: (context, url) => Center(child: CircularProgressIndicator()),
@@ -49,7 +49,7 @@ class _ProductCardWidgetState extends State<ProductCardWidget> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product.title ?? "No title",
+                    product.title,
                     style: AppTextStyles.body4(
                       fontWeight: FontWeight.w600,
                       color: AppColors.black,
@@ -65,8 +65,8 @@ class _ProductCardWidgetState extends State<ProductCardWidget> {
                     children: [
                       Text(
                         "\$${product.price}",
-                        style: AppTextStyles.body4(
-                          fontWeight: FontWeight.w600,
+                        style: AppTextStyles.body3(
+                          fontWeight: FontWeight.w700,
                           color: AppColors.black,
                           height: 1.5,
                           letterSpacing: 0,
@@ -77,7 +77,7 @@ class _ProductCardWidgetState extends State<ProductCardWidget> {
                           Icon(Icons.star, color: Colors.amber, size: 18),
                           SizedBox(width: 2),
                           Text(
-                            "${product.rating?.rate?.toString() ?? "-"} (${product.rating?.count?.toString()})",
+                            "${product.rating} (${product.ratingCount})",
                             style: AppTextStyles.body4(
                               fontWeight: FontWeight.w500,
                               color: AppColors.black,

@@ -1,3 +1,4 @@
+import 'package:fakestore_test/features/products/presentation/views/product_detail_screen.dart';
 import 'package:fakestore_test/features/products/presentation/views/product_list_screen.dart';
 import 'package:flutter/material.dart';
 

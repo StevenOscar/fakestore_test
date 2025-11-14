@@ -2,6 +2,9 @@ import 'package:fakestore_test/core/styles/app_color.dart';
 import 'package:fakestore_test/core/styles/app_text_styles.dart';
 import 'package:fakestore_test/core/utils/capitalize_string.dart';
 import 'package:fakestore_test/features/products/data/models/product_model.dart';
+import 'package:fakestore_test/features/products/domain/entities/product.dart';
+import 'package:fakestore_test/features/products/presentation/providers/product_provider.dart';
+import 'package:fakestore_test/features/products/presentation/views/product_detail_screen.dart';
 import 'package:fakestore_test/features/products/presentation/widgets/category_chip.dart';
 import 'package:fakestore_test/features/products/presentation/widgets/product_card_widget.dart';
 import 'package:flutter/material.dart';
@@ -18,12 +21,33 @@ class ProductListScreen extends ConsumerStatefulWidget {
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   final TextEditingController searchController = TextEditingController();
-  final List<Category> categoryList = Category.values;
+  final List<Category?> categoryList = [null, ...Category.values];
   int selectedIndex = 0;
   bool isSearclicked = false;
 
+  List<Product> _filterProducts(List<Product> products) {
+    final Category? selectedCategory = categoryList[selectedIndex];
+    final query = searchController.text.trim().toLowerCase();
+    var result = products;
+
+    if (selectedCategory != null) {
+      result = result.where((p) => p.category == selectedCategory).toList();
+    }
+
+    if (query.isNotEmpty) {
+      result = result.where((p) {
+        final title = p.title.toLowerCase();
+        final categoryName = (categoryValues.reverse[p.category] ?? '').toLowerCase();
+        return title.contains(query) || categoryName.contains(query);
+      }).toList();
+    }
+
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final productsAsync = ref.watch(productListNotifierProvider);
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -46,7 +70,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                     height: 1.5,
                     letterSpacing: 0,
                   ),
-                  onChanged: (value) {},
+                  onChanged: (value) {
+                    setState(() {
+                      selectedIndex = 0;
+                    });
+                  },
                   decoration: InputDecoration(
                     filled: true,
                     prefixIcon: Padding(
@@ -76,6 +104,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                       borderSide: BorderSide(color: AppColors.black, width: 2),
                     ),
                   ),
+                  onSubmitted: (value) {
+                    setState(() {});
+                  },
                 ),
               )
             : Text(
@@ -103,63 +134,88 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            SizedBox(height: 28),
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                itemCount: categoryList.length,
-                shrinkWrap: true,
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (BuildContext context, int index) {
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedIndex = index;
-                      });
-                    },
-                    child: CategoryChip(
-                      title: CapitalizeString.capitalize(
-                        categoryValues.reverse[categoryList[index]] ?? "-",
-                      ),
-                      isSelected: selectedIndex == index,
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: 20),
-
-            // Karena data yang diberikan fakestoreapi.com hanya 20 data dan tidak menerima parameter page, tidak memungkinkan menggunakan infinite scroll pagination
-            MasonryGridView.count(
-              crossAxisCount: 2,
-              physics: NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              mainAxisSpacing: 16,
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              crossAxisSpacing: 16,
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                final isShort = index % 4 == 0 || index % 4 == 3;
-                return ProductCardWidget(
-                  isShort: isShort,
-                  product: ProductModel(
-                    image: "https://fakestoreapi.com/img/81XH0e8fefL._AC_UY879_t.png",
-                    price: 29.95,
-                    rating: Rating(count: 340, rate: 2.9),
-                    category: Category.WOMEN_S_CLOTHING,
-                    title: "Lock and Love Women's Removable Hooded Faux Leather Moto Biker Jacket",
-                  ),
-                );
-              },
-            ),
-            // untuk free space ketika scroll sudah habis
-            SizedBox(height: 30),
-          ],
+      body: productsAsync.when(
+        loading: () => Center(
+          child: SizedBox(
+            width: 70,
+            height: 70,
+            child: CircularProgressIndicator(color: AppColors.black),
+          ),
         ),
+        error: (err, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text('Error: $err', textAlign: TextAlign.center),
+          ),
+        ),
+        data: (products) {
+          final filteredProducts = _filterProducts(products);
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 28),
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    itemCount: categoryList.length,
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (BuildContext context, int index) {
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedIndex = index;
+                          });
+                        },
+                        child: CategoryChip(
+                          title: categoryList[index] == null
+                              ? "All Items"
+                              : CapitalizeString.capitalize(
+                                  categoryValues.reverse[categoryList[index]] ?? "-",
+                                ),
+                          isSelected: selectedIndex == index,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Karena data yang diberikan fakestoreapi.com hanya 20 data dan tidak menerima parameter page, tidak memungkinkan menggunakan infinite scroll pagination
+                filteredProducts.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text('No product found', textAlign: TextAlign.center),
+                      )
+                    : MasonryGridView.count(
+                        crossAxisCount: 2,
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        mainAxisSpacing: 16,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        crossAxisSpacing: 16,
+                        itemCount: filteredProducts.length,
+                        itemBuilder: (context, index) {
+                          final product = filteredProducts[index];
+                          final isShort = index % 4 == 0 || index % 4 == 3;
+                          return InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProductDetailScreen(product: product),
+                                ),
+                              );
+                            },
+                            child: ProductCardWidget(isShort: isShort, product: product),
+                          );
+                        },
+                      ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
